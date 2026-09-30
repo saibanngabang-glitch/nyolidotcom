@@ -1,0 +1,190 @@
+<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>Ngabang Gold Prospectivity Engine</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{--bg:#fbfaf7;--fg:#1c1b19;--cd:#fff;--mu:#6b675f;--ac:#b8860b;--bd:#ddd8cc;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15140f;--fg:#ece8dc;--cd:#1f1d16;--mu:#9b9688;--ac:#e0b43c;--bd:#37332a}}
+:root[data-theme="dark"]{--bg:#15140f;--fg:#ece8dc;--cd:#1f1d16;--mu:#9b9688;--ac:#e0b43c;--bd:#37332a}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{height:100%;margin:0;display:flex;flex-direction:column;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,sans-serif}
+header{padding:8px 12px;border-bottom:1px solid var(--bd);font-weight:700}header small{display:block;font-weight:400;color:var(--mu)}
+main{flex:1;overflow-y:auto;padding:10px 12px}
+.ds{font-size:11px;color:var(--mu);padding:4px 12px;border-top:1px solid var(--bd)}
+nav{display:flex;border-top:1px solid var(--bd);background:var(--cd)}
+nav button{flex:1;min-height:48px;border:0;background:none;color:var(--mu);font-size:12px}nav button.on{color:var(--ac);font-weight:700}
+.c{background:var(--cd);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;margin:8px 0}
+button,select,input,textarea{font:inherit;color:var(--fg);background:var(--cd);border:1px solid var(--bd);border-radius:8px;padding:6px 8px;max-width:100%;box-sizing:border-box}
+.b{min-height:44px;min-width:44px;background:var(--ac);color:#fff;border:0;font-weight:600;margin:3px 3px 3px 0}
+textarea{width:100%;min-height:90px;font-family:monospace;font-size:12px}
+#map{width:100%;height:58dvh;min-height:300px;border:1px solid var(--bd);border-radius:10px;touch-action:none;display:block}
+table{border-collapse:collapse;width:100%;font-size:12px}td,th{border-bottom:1px solid var(--bd);padding:3px 4px;text-align:left}
+.w{color:#c2410c}.g{display:grid;grid-template-columns:1fr 1fr;gap:6px}.k{font-size:20px;font-weight:700}
+label{display:block;margin:6px 0 2px;font-size:12px;color:var(--mu)}input[type=range]{width:100%}
+.ov{overflow-x:auto}summary{min-height:32px;cursor:pointer}
+</style></head><body>
+<header>⛏️ NGABANG GOLD PROSPECTIVITY ENGINE<small>Kec. Ngabang · Kab. Landak · Kalimantan Barat</small></header>
+<main>
+<section class="tab" id="t_map">
+<canvas id="map"></canvas>
+<div class="c" style="display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px" id="ly"></div>
+<div class="c" id="lg"></div><div class="c" id="info">Ketuk fitur pada peta untuk detail. <span id="co"></span></div>
+<button class="b" onclick="zm(1.4)">＋</button><button class="b" onclick="zm(1/1.4)">－</button><button class="b" onclick="fit()">Fit data</button>
+<p style="font-size:11px;color:var(--mu)">Tanpa basemap: halaman publish tidak dapat memuat tile OSM. Pusat tampilan default (≈ Ngabang) hanya pusat tampilan, bukan titik mineralisasi. N ↑</p>
+</section>
+<section class="tab" id="t_data" hidden>
+<div class="c"><b>Sampel geokimia (CSV)</b><p style="margin:4px 0;color:var(--mu)">Kolom: id,lat,lon,type,Au,Ag,As,Sb,Cu,Pb,Zn,Hg,source,year,contextual(1),known(1). Unit asli dipertahankan; "&lt;0.01" = di bawah detection limit (diproses ½ DL). Tidak ada data bawaan: DATA TIDAK TERSEDIA sampai Anda memuatnya.</p>
+<textarea id="csv" placeholder="id,lat,lon,type,Au,..."></textarea>
+<input type="file" id="fi" accept=".csv,.txt"><br>
+<button class="b" onclick="tp()">Template</button><button class="b" onclick="ld2()">Muat &amp; Validasi</button><button class="b" style="background:#7a7a7a" onclick="clr()">Hapus data lokal</button></div>
+<div class="c"><b>Struktur (GeoJSON LineString, opsional)</b><br><input type="file" id="fs" accept=".json,.geojson"><div id="sm" style="color:var(--mu)">Belum ada data struktur.</div></div>
+<div class="c" id="dr"></div>
+</section>
+<section class="tab" id="t_an" hidden>
+<div class="c"><b>Parameter (konfigurabel)</b>
+<label>Metode anomali Au</label><select class="pr" id="pm"><option value="mad">Robust MAD</option><option value="pct">Percentile P90/95/98</option></select>
+<label>Bandwidth kernel geokimia h: <span id="vh"></span> km</label><input class="pr" type="range" id="ph" min="0.5" max="10" step="0.5" value="2">
+<label>Skala decay struktur L: <span id="vL"></span> km</label><input class="pr" type="range" id="pL" min="0.2" max="5" step="0.2" value="1">
+<label>Ambang zona prospek: <span id="vt"></span></label><input class="pr" type="range" id="pt" min="0.3" max="0.9" step="0.05" value="0.6">
+<label>Diskon dependensi pathfinder: <span id="vd"></span></label><input class="pr" type="range" id="pd" min="0" max="1" step="0.1" value="0.5">
+<label>Bobot Au <span id="va"></span></label><input class="pr" type="range" id="wa" min="0" max="1" step="0.05" value="0.5">
+<label>Bobot Pathfinder <span id="vp"></span></label><input class="pr" type="range" id="wp" min="0" max="1" step="0.05" value="0.2">
+<label>Bobot Struktur <span id="vs"></span></label><input class="pr" type="range" id="ws" min="0" max="1" step="0.05" value="0.3">
+<label>Grid N×N: <span id="vn"></span></label><input class="pr" type="range" id="pn" min="15" max="40" step="5" value="30">
+<button class="b" onclick="run(true)">Jalankan model (simpan versi)</button></div>
+<div id="an"></div>
+<div class="c"><b>Ekspor</b><br><select id="xk"><option value="s">Sampel</option><option value="t">Target</option><option value="v">Survey</option></select>
+<select id="xf"><option value="csv">CSV</option><option value="gj">GeoJSON</option><option value="kml">KML</option></select>
+<button class="b" onclick="exp()">Buat</button><button class="b" onclick="navigator.clipboard&&navigator.clipboard.writeText($('#xo').value)">Salin</button><textarea id="xo" readonly></textarea></div>
+</section>
+<section class="tab" id="t_tg" hidden><div id="tg"></div></section>
+<section class="tab" id="t_sv" hidden>
+<div class="c"><b>Tambah titik survey</b><div class="g" id="sf"></div>
+<button class="b" onclick="gps()">📍 GPS</button><button class="b" onclick="ss()">Simpan titik</button>
+<p style="font-size:11px;color:var(--mu)">Hasil lab (Au dst.) otomatis masuk dataset; jalankan model lagi → versi baru. Foto belum didukung.</p></div>
+<div class="c" id="sl"></div>
+</section>
+</main>
+<div class="ds">Model prospektivitas berbasis data. Nilai prospectivity = tingkat kesesuaian terhadap evidence model, bukan probabilitas langsung adanya emas, bukan estimasi kadar/cadangan. Semua target memerlukan verifikasi geologi, sampling, dan analisis laboratorium.</div>
+<nav><button data-t="map">🗺️<br>MAP</button><button data-t="data">🧪<br>DATA</button><button data-t="an">📊<br>ANALYSIS</button><button data-t="tg">🎯<br>TARGET</button><button data-t="sv">📍<br>SURVEY</button></nav>
+<script>
+const EL=['Au','Ag','As','Sb','Cu','Pb','Zn','Hg'],PF=EL.slice(1),$=s=>document.querySelector(s),h=(e,t)=>{$(e).innerHTML=t};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ldk=k=>{try{return JSON.parse(localStorage.getItem(k))||[]}catch(e){return[]}},svk=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+let RAW=ldk('raw'),SV=ldk('sv'),VER=ldk('ver'),S=[],ISS=[],M=null,ST=[],HIT=[],V={cx:109.97,cy:0.4,k:4000};
+const P={h:2,L:1,thr:.6,dep:.5,mode:'mad',n:30,w:{au:.5,pf:.2,st:.3}},LY={p:1,u:1,s:1,l:1,t:1,v:1};
+const cl=p=>['VERY LOW','LOW','MODERATE','HIGH','VERY HIGH'][Math.max(0,Math.min(4,Math.floor(p*5)))],ul=u=>['Low','Medium','High','Very High'][Math.max(0,Math.min(3,Math.floor(u*4)))];
+const med=a=>{const b=[...a].sort((x,y)=>x-y),n=b.length;return n%2?b[(n-1)/2]:(b[n/2-1]+b[n/2])/2};
+const pct=(a,p)=>{const b=[...a].sort((x,y)=>x-y),i=(b.length-1)*p,l=Math.floor(i);return b[l]+(b[Math.min(l+1,b.length-1)]-b[l])*(i-l)};
+function st(a){const n=a.length,m=a.reduce((x,y)=>x+y,0)/n,sd=Math.sqrt(a.reduce((x,y)=>x+(y-m)**2,0)/(n-1||1)),md=med(a),mad=med(a.map(x=>Math.abs(x-md)));return{n,m,sd,md,mad,sk:sd?a.reduce((x,y)=>x+((y-m)/sd)**3,0)/n:0,p90:pct(a,.9),p95:pct(a,.95),p98:pct(a,.98)}}
+const rk=a=>{const o=a.map((v,i)=>[v,i]).sort((x,y)=>x[0]-y[0]),r=[];for(let i=0;i<o.length;){let j=i;while(j+1<o.length&&o[j+1][0]==o[i][0])j++;for(let k=i;k<=j;k++)r[o[k][1]]=(i+j)/2+1;i=j+1}return r};
+const cor=(x,y)=>{const n=x.length,mx=x.reduce((a,b)=>a+b)/n,my=y.reduce((a,b)=>a+b)/n;let a=0,b=0,c=0;for(let i=0;i<n;i++){a+=(x[i]-mx)*(y[i]-my);b+=(x[i]-mx)**2;c+=(y[i]-my)**2}return b&&c?a/Math.sqrt(b*c):NaN};
+const erf=x=>{const t=1/(1+.3275911*Math.abs(x)),y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-x*x);return x<0?-y:y};
+function spear(e){const p=S.filter(s=>s.Au!=null&&s[e]!=null);if(p.length<4)return{n:p.length};const r=cor(rk(p.map(s=>s.Au)),rk(p.map(s=>s[e]))),n=p.length,t=r*Math.sqrt((n-2)/(1-r*r||1e-9));return{n,r,p:n>=10?1-erf(Math.abs(t)/Math.SQRT2):null}}
+const km=(a,b,c,d)=>Math.hypot((d-b)*111.32*Math.cos((a+c)*Math.PI/360),(c-a)*110.57);
+const sdist=(lat,lon,pl)=>{let m=1e9;const c=111.32*Math.cos(lat*Math.PI/180);for(const l of pl)for(let i=0;i<l.length-1;i++){const ax=(l[i][0]-lon)*c,ay=(l[i][1]-lat)*110.57,dx=(l[i+1][0]-lon)*c-ax,dy=(l[i+1][1]-lat)*110.57-ay,q=dx*dx+dy*dy,u=q?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/q)):0;m=Math.min(m,Math.hypot(ax+u*dx,ay+u*dy))}return m};
+function num(s){if(s===undefined||s==='')return{v:null};const dl=s[0]=='<',v=parseFloat(s.replace(/^[<>]/,'').replace(',','.'));return isNaN(v)?{v:null,bad:1}:{v:dl?v/2:v,dl}}
+const dqf=s=>+((EL.filter(e=>s[e]!=null).length/8+(/\.\d{4,}/.test(String(s.lat))?1:.5)+(s.yr?Math.max(0,1-(2026-s.yr)/30):.4)+(s.src?1:.4))/4).toFixed(2);
+function parse(t){const ln=t.trim().split(/\r?\n/).filter(x=>x.trim());if(ln.length<2)return[];const d=[',',';','\t'].sort((a,b)=>ln[0].split(b).length-ln[0].split(a).length)[0],H=ln[0].split(d).map(x=>x.trim().toLowerCase());return ln.slice(1).map((l,i)=>{const c=l.split(d),o={};H.forEach((k,j)=>o[k]=(c[j]||'').trim());o._r=i+2;return o})}
+function clean(){ISS=[];S=[];const seen=new Set();RAW.forEach(r=>{const lat=parseFloat(r.lat||r.latitude),lon=parseFloat(r.lon||r.lng||r.longitude),id=r.id||r.sample_id||'R'+r._r;
+if(isNaN(lat)||isNaN(lon)||Math.abs(lat)>90||Math.abs(lon)>180){ISS.push(id+': koordinat tidak valid (dibuang)');return}
+const key=id+'|'+lat+'|'+lon;if(seen.has(key)){ISS.push(id+': duplikat (dibuang)');return}seen.add(key);
+const s={id,lat,lon,type:r.type||r.sample_type||'',src:r.source||'',yr:parseInt(r.year)||null,ctx:r.contextual=='1',known:r.known=='1',raw:{},dl:[]};
+EL.forEach(e=>{const q=num(r[e.toLowerCase()]);if(q.bad)ISS.push(id+': '+e+' bukan angka');s[e]=q.v;s.raw[e]=r[e.toLowerCase()]||'';if(q.dl)s.dl.push(e)});s.dq=dqf(s);S.push(s)})}
+function anom(){const A=S.filter(s=>s.Au!=null);if(A.length<5)return null;const v=A.map(s=>s.Au),a=st(v),lg=a.sk>1&&v.every(x=>x>0),t=A.map(s=>lg?Math.log10(s.Au):s.Au),b=st(t);let mode=P.mode;if(mode=='mad'&&!b.mad)mode='pct';
+A.forEach((s,i)=>{s.t=t[i];if(mode=='mad'){s.z=(t[i]-b.md)/(1.4826*b.mad);s.ac=s.z>=5?3:s.z>=3.5?2:s.z>=2?1:0}else s.ac=t[i]>=b.p98?3:t[i]>=b.p95?2:t[i]>=b.p90?1:0});return{a,b,lg,mode,A,t}}
+const sc=(c,w)=>{let a=0,b=0;for(const k in c.E){a+=w[k]*c.E[k];b+=w[k]}return b?a/b:null};
+function run(sv){readP();clean();const an=anom();if(!an){M=null;rAll();return}
+const A=an.A,lo=Math.min(...an.t),hi=an.b.p98;A.forEach(s=>s.eAu=Math.max(0,Math.min(1,(s.t-lo)/(hi-lo||1))));
+const used=PF.filter(e=>{const c=spear(e);return c.r>0&&c.n>=6});
+used.forEach(e=>{const Lq=S.filter(s=>s[e]!=null),r=rk(Lq.map(s=>s[e]));Lq.forEach((s,i)=>s['p_'+e]=(r[i]-.5)/Lq.length)});
+A.forEach(s=>{const v=used.map(e=>s['p_'+e]).filter(x=>x!=null);s.ePf=v.length?v.reduce((a,b)=>a+b)/v.length:null});
+const la=A.map(s=>s.lat),lo2=A.map(s=>s.lon),n=P.n;let y0=Math.min(...la),y1=Math.max(...la),x0=Math.min(...lo2),x1=Math.max(...lo2);
+const py=Math.max(y1-y0,.03)*.15,px=Math.max(x1-x0,.03)*.15;y0-=py;y1+=py;x0-=px;x1+=px;const dx=(x1-x0)/n,dy=(y1-y0)/n,cA=dx*111.32*Math.cos((y0+y1)*Math.PI/360)*dy*110.57;
+const W={au:P.w.au,pf:P.w.pf*(1-P.dep),st:P.w.st},cells=[];
+for(let j=0;j<n;j++)for(let i=0;i<n;i++){const lat=y0+(j+.5)*dy,lon=x0+(i+.5)*dx;let sw=0,sa=0,sp=0,wp=0,dm=1e9,cnt=0,dqs=0;
+A.forEach(s=>{const d=km(lat,lon,s.lat,s.lon);dm=Math.min(dm,d);const w=Math.exp(-(d/P.h)**2);if(d<=2*P.h)cnt++;sw+=w;sa+=w*s.eAu;dqs+=w*s.dq;if(s.ePf!=null){wp+=w;sp+=w*s.ePf}});
+const c={i,j,id:'C'+(j*n+i),lat,lon,dm,cnt,E:{},dq:0,P:null,U:null};
+if(dm<=3*P.h&&sw>1e-6){c.E.au=sa/sw;c.dq=dqs/sw;if(wp>1e-6)c.E.pf=sp/wp;if(ST.length){c.ds=sdist(lat,lon,ST);c.E.st=Math.exp(-c.ds/P.L)}
+c.P=sc(c,W);const miss=(3-Object.keys(c.E).length)/3,cf=c.E.pf!=null?Math.abs(c.E.au-c.E.pf):.3;
+c.U=.3*Math.min(1,dm/(3*P.h))+.2*(1-Math.min(1,cnt/5))+.2*(1-c.dq)+.15*cf+.15*miss}cells.push(c)}
+const seen=new Set(),T=[],ix=(i,j)=>j*n+i;
+cells.forEach(c0=>{if(c0.P==null||c0.P<P.thr||seen.has(ix(c0.i,c0.j)))return;const q=[c0],g=[];seen.add(ix(c0.i,c0.j));
+while(q.length){const c=q.pop();g.push(c);[[1,0],[-1,0],[0,1],[0,-1]].forEach(([a,b])=>{const i=c.i+a,j=c.j+b;if(i<0||j<0||i>=n||j>=n)return;const d=cells[ix(i,j)];if(d.P!=null&&d.P>=P.thr&&!seen.has(ix(i,j))){seen.add(ix(i,j));q.push(d)}})}
+const mn=f=>g.reduce((a,c)=>a+f(c),0)/g.length,t={cells:g,lat:mn(c=>c.lat),lon:mn(c=>c.lon),area:g.length*cA,Pm:mn(c=>c.P),Px:Math.max(...g.map(c=>c.P)),U:mn(c=>c.U),dq:mn(c=>c.dq),cnt:mn(c=>c.cnt)};
+const nm={au:'Geokimia Au (kernel)',pf:'Asosiasi pathfinder',st:'Kedekatan struktur'};t.L=['au','pf','st'].filter(k=>g.some(c=>c.E[k]!=null)).map(k=>{const cs=g.filter(c=>c.E[k]!=null);return{k,n:nm[k],e:cs.reduce((a,c)=>a+c.E[k],0)/cs.length,w:W[k]}});
+t.ec=t.L.filter(x=>x.e>=.5).length;t.dom=t.L.length?t.L.slice().sort((a,b)=>b.e*b.w-a.e*a.w)[0].n:'-';
+t.miss=[];if(!used.length)t.miss.push('Pathfinder (tidak ada korelasi positif valid)');if(!ST.length)t.miss.push('Struktur (belum ada data)');t.miss.push('Geologi, hidrologi/upstream, remote sensing: DATA TIDAK TERSEDIA');if(!A.some(s=>/rock|batuan/i.test(s.type)))t.miss.push('Tidak ada assay batuan langsung');if(t.cnt<3)t.miss.push('Sampling jarang');
+const nr=A.map(s=>[km(t.lat,t.lon,s.lat,s.lon),s]).sort((a,b)=>a[0]-b[0]);t.nr=nr.slice(0,3);t.ds=ST.length?mn(c=>c.ds??0):null;
+const av=f=>t.cells.reduce((a,c)=>a+sc(c,f),0)/t.cells.length,rg=fs=>{const v=[];for(const k in W)fs.forEach(f=>v.push(av({...W,[k]:W[k]*f})));return[Math.min(...v),Math.max(...v)]};
+t.r10=rg([.9,1.1]);t.r20=rg([.8,1.2]);const sp2=t.r20[1]-t.r20[0];t.stab=sp2<.08?'Model Stable':sp2<.15?'Model MEDIUM':'Model Sensitive';T.push(t)});
+T.sort((a,b)=>b.Pm-a.Pm).forEach((t,i)=>{t.id='TARGET-'+String(i+1).padStart(3,'0')});
+const K=A.filter(s=>s.known).map(s=>{const i=Math.floor((s.lon-x0)/dx),j=Math.floor((s.lat-y0)/dy),c=cells[ix(i,j)];return c?c.P:null}).filter(x=>x!=null);
+M={cells,n,x0,y0,dx,dy,an,used,W,T,A,K,meanP:cells.filter(c=>c.P!=null).reduce((a,c)=>a+c.P,0)/(cells.filter(c=>c.P!=null).length||1)};
+if(sv===true){VER.push({v:'v1.'+VER.length,date:new Date().toISOString().slice(0,16),n:A.length,w:{...W},h:P.h,L:P.L,thr:P.thr,dep:P.dep,algo:'Kernel+WLC',targets:T.length,meanP:+M.meanP.toFixed(3),validation:K.length?(K.filter(p=>p>=.6).length+'/'+K.length+' known ≥0.6'):'tanpa known occurrence'});VER=VER.slice(-30);svk('ver',VER)}
+rAll();if(sv===true&&T.length)fit()}
+function readP(){P.mode=$('#pm').value;P.h=+$('#ph').value;P.L=+$('#pL').value;P.thr=+$('#pt').value;P.dep=+$('#pd').value;P.w={au:+$('#wa').value,pf:+$('#wp').value,st:+$('#ws').value};P.n=+$('#pn').value;
+[['vh',P.h],['vL',P.L],['vt',P.thr],['vd',P.dep],['va',P.w.au],['vp',P.w.pf],['vs',P.w.st],['vn',P.n]].forEach(([i,v])=>$('#'+i).textContent=v)}
+const ramp=p=>p<.4?'#2e9e4f':p<.6?'#e6c229':p<.8?'#f08a24':'#d93025',AC=['#8a8a8a','#4fa3e0','#e6a100','#e11d48'];
+function view(){const c=$('#map'),W=c.clientWidth,H=c.clientHeight,kx=V.k*Math.cos(V.cy*Math.PI/180);return{W,H,kx,X:o=>W/2+(o-V.cx)*kx,Y:a=>H/2-(a-V.cy)*V.k}}
+function draw(){const c=$('#map');if(!c.clientWidth)return;const d=devicePixelRatio||1,{W,H,kx,X,Y}=view();if(c.width!=W*d){c.width=W*d;c.height=H*d}const g=c.getContext('2d');g.setTransform(d,0,0,d,0,0);g.clearRect(0,0,W,H);HIT=[];
+const fg=getComputedStyle(document.documentElement).getPropertyValue('--fg');
+if(M&&LY.p){M.cells.forEach(c=>{if(c.P==null)return;g.globalAlpha=LY.u?.92-.68*Math.min(1,c.U):.75;g.fillStyle=ramp(c.P);g.fillRect(X(M.x0+c.i*M.dx),Y(M.y0+(c.j+1)*M.dy),M.dx*kx+1,M.dy*V.k+1)});g.globalAlpha=1}
+if(LY.l&&ST.length){g.strokeStyle=fg;g.setLineDash([5,4]);ST.forEach(l=>{g.beginPath();l.forEach((p,i)=>i?g.lineTo(X(p[0]),Y(p[1])):g.moveTo(X(p[0]),Y(p[1])));g.stroke()});g.setLineDash([])}
+if(LY.s)S.forEach(s=>{const x=X(s.lon),y=Y(s.lat),ac=s.Au!=null?s.ac||0:null;g.beginPath();g.arc(x,y,ac==null?3:4+2*ac,0,7);g.lineWidth=1.5;g.strokeStyle=fg;if(s.ctx){g.strokeStyle=AC[ac||0];g.stroke()}else{g.fillStyle=ac==null?'#bbb':AC[ac];g.fill();g.stroke()}HIT.push({x,y,r:14,t:'s',o:s})});
+if(LY.v)SV.forEach(s=>{const x=X(s.lon),y=Y(s.lat);g.fillStyle='#7c3aed';g.beginPath();g.moveTo(x,y-7);g.lineTo(x+6,y+5);g.lineTo(x-6,y+5);g.fill();HIT.push({x,y,r:14,t:'v',o:s})});
+if(M&&LY.t)M.T.forEach((t,k)=>{const x=X(t.lon),y=Y(t.lat);g.lineWidth=3;g.strokeStyle='#fff';g.fillStyle='#111';g.beginPath();g.arc(x,y,11,0,7);g.stroke();g.fill();g.fillStyle='#fff';g.font='bold 11px sans-serif';g.textAlign='center';g.fillText(k+1,x,y+4);HIT.push({x,y,r:18,t:'t',o:t,k})});
+g.fillStyle=fg;g.font='11px sans-serif';g.textAlign='left';const kmpx=V.k/110.57*Math.cos(V.cy*Math.PI/180)*0+V.k/110.57*1,sb=[.5,1,2,5,10,20,50].find(v=>v*kmpx>60)||50;g.fillRect(10,H-14,sb*kmpx,3);g.fillText(sb+' km',10,H-19);g.fillText('N ↑',W-26,16);
+h('#lg',(M&&LY.p?'<b>Prospectivity</b> (kesesuaian model): <span style="color:#2e9e4f">■</span> &lt;0.4 <span style="color:#e6c229">■</span> &lt;0.6 <span style="color:#f08a24">■</span> &lt;0.8 <span style="color:#d93025">■</span> ≥0.8'+(LY.u?' · transparansi ↑ = uncertainty ↑':''):'')+(LY.s?'<br><b>Sampel Au</b> ('+(M?M.an.mode=='mad'?'Robust MAD Z≥2/3.5/5':'P90/P95/P98':'belum dianalisis')+'): '+['Background','Weak','Moderate','Strong'].map((n,i)=>`<span style="color:${AC[i]}">●</span> ${n}`).join(' ')+' · ○ = CONTEXTUAL DATA':'')+(!S.length&&!SV.length?'<br>NO DATA: muat sampel di tab DATA.':''))}
+function zm(f){V.k*=f;draw()}
+function fit(){const c=$('#map'),pts=[...S,...SV].map(s=>[+s.lon,+s.lat]).filter(p=>!isNaN(p[0]));if(!pts.length)return;const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);V.cx=(x0+x1)/2;V.cy=(y0+y1)/2;const cs=Math.cos(V.cy*Math.PI/180);V.k=Math.min(c.clientWidth/(Math.max(x1-x0,.02)*cs*1.3),c.clientHeight/(Math.max(y1-y0,.02)*1.3));draw()}
+(function(){const c=$('#map');let dr=null,mv=0;c.addEventListener('pointerdown',e=>{dr={x:e.clientX,y:e.clientY};mv=0;c.setPointerCapture(e.pointerId)});
+c.addEventListener('pointermove',e=>{const r=c.getBoundingClientRect(),{kx}=view();$('#co').textContent=(V.cy-(e.clientY-r.top-c.clientHeight/2)/V.k).toFixed(5)+', '+(V.cx+(e.clientX-r.left-c.clientWidth/2)/kx).toFixed(5);if(!dr)return;const dx=e.clientX-dr.x,dy=e.clientY-dr.y;mv+=Math.abs(dx)+Math.abs(dy);V.cx-=dx/kx;V.cy+=dy/V.k;dr={x:e.clientX,y:e.clientY};draw()});
+c.addEventListener('pointerup',e=>{dr=null;if(mv<6){const r=c.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,hh=HIT.filter(q=>Math.hypot(q.x-x,q.y-y)<q.r).sort((a,b)=>({t:0,v:1,s:2}[a.t]-{t:0,v:1,s:2}[b.t]))[0];if(hh)info(hh)}});
+c.addEventListener('wheel',e=>{e.preventDefault();zm(e.deltaY<0?1.2:1/1.2)},{passive:false})})();
+function info(q){const o=q.o;if(q.t=='t')h('#info',`<b>${o.id}</b> P ${o.Pm.toFixed(2)} (${cl(o.Pm)}) · U ${o.U.toFixed(2)} (${ul(o.U)})<br>${o.lat.toFixed(5)}, ${o.lon.toFixed(5)}<br><button class="b" onclick="gt(${q.k})">Why?</button>`);
+else if(q.t=='s')h('#info',`<b>${esc(o.id)}</b>${o.ctx?' · CONTEXTUAL DATA':''}<br>${o.lat}, ${o.lon} · ${esc(o.type)}<br>`+EL.map(e=>o.raw[e]!==''?e+' '+esc(o.raw[e]):'').filter(Boolean).join(' · ')+`<br>DQ ${o.dq} (${cl(o.dq)}) · ${o.Au!=null&&o.z!==undefined?'Z='+o.z.toFixed(2):''}<br>SOURCE: ${esc(o.src)||'tidak dicatat'} ${o.yr||''}`);
+else h('#info',`<b>${esc(o.id)}</b> (survey) ${o.lat}, ${o.lon}<br>${esc(o.rock)} ${esc(o.notes)}`)}
+function gt(k){tab('tg');const d=$('#d'+k);d.open=true;d.scrollIntoView()}
+function rAll(){rD();rA();rT();rS();draw()}
+function rD(){h('#dr',`<b>Validasi &amp; preprocessing</b><br>Baris mentah: ${RAW.length} · valid: ${S.length} · Au valid: ${S.filter(s=>s.Au!=null).length} · di bawah DL: ${S.filter(s=>s.dl.length).length} · contextual: ${S.filter(s=>s.ctx).length} · known: ${S.filter(s=>s.known).length}<br>Data asli (RAW) tidak diubah; nilai olahan disimpan terpisah.`+(ISS.length?`<details><summary class="w">${ISS.length} masalah</summary>${ISS.slice(0,30).map(esc).join('<br>')}</details>`:''))}
+function rA(){if(!M){h('#an','<div class="c w">INSUFFICIENT DATA: butuh ≥5 sampel dengan Au valid. DATA TIDAK TERSEDIA → model tidak dijalankan.</div>');return}
+const a=M.an,b=a.b,A=a.A,f=x=>x.toPrecision(3),cn=A.filter(s=>s.ac>0).length,T=M.T,K=M.K,vs=VER.slice(-2);
+const cr=PF.map(e=>{const c=spear(e);return`<tr><td>Au↔${e}</td><td>${c.r!=null?c.r.toFixed(2):'—'}</td><td>${c.p!=null?c.p.toFixed(3):'n/a'}</td><td>${c.n}</td></tr>`}).join('');
+h('#an',`<div class="g"><div class="c">Sampel Au<div class="k">${A.length}</div></div><div class="c">Target (zona)<div class="k">${T.length}</div></div><div class="c">Data Quality rata-rata<div class="k">${f(A.reduce((x,s)=>x+s.dq,0)/A.length)}</div></div><div class="c">Known occurrence<div class="k">${A.filter(s=>s.known).length}</div></div></div>
+<div class="c"><b>Au</b> (unit asli, ${A.length} sampel): mean ${f(a.a.m)} · median ${f(a.a.md)} · SD ${f(a.a.sd)} · MAD ${f(a.a.mad)} · P90 ${f(a.a.p90)} · P95 ${f(a.a.p95)} · P98 ${f(a.a.p98)} · skew ${a.a.sk.toFixed(2)}<br>Transformasi: ${a.lg?'log10 (skew&gt;1; nilai asli tetap disimpan)':'tidak ada'} · Metode anomali: <b>${a.mode=='mad'?'Robust MAD (Z=(x−median)/(1.4826·MAD); weak ≥2, moderate ≥3.5, strong ≥5)':'Percentile (P90/P95/P98)'}</b>${P.mode=='mad'&&a.mode=='pct'?' — MAD=0, otomatis ke percentile':''} · ${cn} sampel anomali<canvas id="hi" style="width:100%;height:110px"></canvas></div>
+<div class="c ov"><b>Pathfinder (Spearman; p-value aproksimasi normal, n≥10)</b><table><tr><th>Pasangan</th><th>ρ</th><th>p</th><th>n</th></tr>${cr}</table>Korelasi ≠ sebab-akibat. Pathfinder dipakai: ${M.used.join(', ')||'tidak ada'}.</div>
+<div class="c"><b>Status model</b><br>Prospectivity: ACTIVE · Uncertainty: ACTIVE · Mean P ${M.meanP.toFixed(2)}<br>Layer aktif: Au${M.used.length?', pathfinder':''}${ST.length?', struktur':''}. Sel di luar cakupan sampel (&gt;3h) = NO DATA (tidak diinterpolasi).<br>Kriging/IDW: DINONAKTIFKAN — ANALYSIS NOT RELIABLE WITH CURRENT DATA (variogram &amp; validasi belum tersedia).<br>Machine learning &amp; spatial cross-validation: TIDAK DIAKTIFKAN (label positif tidak memadai). Spatial validation: NOT RUN.<br>Known occurrence: ${K.length?K.filter(p=>p>=.6).length+'/'+K.length+' bernilai P≥0.6'+(K.filter(p=>p>=.6).length/K.length<.5?' — <b class="w">Model calibration required.</b>':'')+' (catatan: known juga bagian dari input Au → validasi tidak independen)':'tidak ada data known occurrence'}.</div>
+<div class="c"><b>Model Audit</b><br>P = Σ(Wi·Ei)/ΣWi atas layer yang tersedia per sel. Ei: Au = kernel Gaussian exp(−(d/h)²) atas evidence robust min-max (P98 clip); pathfinder = rata-rata peringkat persentil elemen berkorelasi positif; struktur = exp(−d/L). Bobot efektif: Au ${M.W.au.toFixed(2)}, pathfinder ${M.W.pf.toFixed(2)} (diskon dependensi ${P.dep}), struktur ${M.W.st.toFixed(2)}. Uncertainty = 0.30 jarak + 0.20 densitas + 0.20 (1−DQ) + 0.15 konflik layer + 0.15 layer hilang. DQ = rata-rata completeness, akurasi koordinat, umur, sumber. Bobot bukan hukum geologi universal. Model terpisah Primary vs Alluvial: belum tersedia (butuh DEM &amp; jaringan sungai).</div>
+<div class="c ov"><b>Versi model</b><table><tr><th>Ver</th><th>n</th><th>Target</th><th>Mean P</th><th>Validasi</th></tr>${VER.slice(-6).map(v=>`<tr><td>${v.v}</td><td>${v.n}</td><td>${v.targets}</td><td>${v.meanP}</td><td>${esc(v.validation)}</td></tr>`).join('')}</table>${vs.length==2?`Bandingkan ${vs[0].v} vs ${vs[1].v}: Δtarget ${vs[1].targets-vs[0].targets}, ΔmeanP ${(vs[1].meanP-vs[0].meanP).toFixed(3)}`:''}</div>`);hist()}
+function hist(){const c=$('#hi');if(!c||!M)return;const W=c.width=c.clientWidth,H=c.height=110,g=c.getContext('2d'),t=M.an.t,lo=Math.min(...t),hi=Math.max(...t),n=12,b=Array(n).fill(0);t.forEach(x=>b[Math.min(n-1,Math.floor((x-lo)/(hi-lo||1)*n))]++);const m=Math.max(...b),cs=getComputedStyle(document.documentElement);g.fillStyle=cs.getPropertyValue('--ac');b.forEach((v,i)=>g.fillRect(i*W/n+1,H-16-(H-22)*v/m,W/n-2,(H-22)*v/m));g.fillStyle=cs.getPropertyValue('--fg');g.font='11px sans-serif';g.fillText((M.an.lg?'log10 ':'')+'Au: '+lo.toFixed(2)+' – '+hi.toFixed(2),4,H-3)}
+function rT(){if(!M){h('#tg','<div class="c w">DATA TIDAK TERSEDIA — belum ada target.</div>');return}
+if(!M.T.length){h('#tg','<div class="c">Tidak ada zona dengan P ≥ '+P.thr+'. Turunkan ambang di ANALYSIS.</div>');return}
+h('#tg','<div class="c">Priority by Model Score (bukan rekomendasi tambang).</div>'+M.T.map((t,k)=>{const strong=t.Pm>=.6&&t.U<.5,mx=t.Pm>=.6?(t.U<.5?'Strong model-supported target':'Important field verification target'):(t.U<.5?'Low priority':'Insufficient information'),fp=t.U>=.5?'CRITICAL DATA GAP':t.Pm>=.8?'HIGH':'MODERATE',srcs=[...new Set(t.nr.map(x=>x[1].src).filter(Boolean))];
+return`<details class="c" id="d${k}"><summary><b>${t.id}</b> · P ${t.Pm.toFixed(2)} ${cl(t.Pm)} · U ${t.U.toFixed(2)} ${ul(t.U)} · FIELD: ${fp}</summary>
+<div class="ov"><table><tr><td>Koordinat</td><td>${t.lat.toFixed(5)}, ${t.lon.toFixed(5)}</td></tr><tr><td>Area / Max P</td><td>${t.area.toFixed(2)} km² (${t.cells.length} sel) / ${t.Px.toFixed(2)}</td></tr><tr><td>Data Quality</td><td>${t.dq.toFixed(2)} ${cl(t.dq)}</td></tr><tr><td>Evidence count</td><td>${t.ec}/${t.L.length} kuat · dominan: ${t.dom}</td></tr><tr><td>Sampel terdekat</td><td>${esc(t.nr[0][1].id)} (${t.nr[0][0].toFixed(2)} km)</td></tr><tr><td>Jarak struktur</td><td>${t.ds!=null?t.ds.toFixed(2)+' km':'DATA TIDAK TERSEDIA'}</td></tr><tr><td>Jarak sungai / geologi / catchment</td><td>DATA TIDAK TERSEDIA</td></tr></table></div>
+<b>WHY THIS TARGET?</b><br>${t.L.map(x=>(x.e>=.5?'✓ ':'△ ')+x.n+': evidence '+x.e.toFixed(2)+' (bobot '+x.w.toFixed(2)+')').join('<br>')}<br>${t.miss.map(m=>'⚠ '+m).join('<br>')}
+<p>Interpretasi: zona ini memiliki prospectivity ${cl(t.Pm).toLowerCase()} terutama dari ${t.dom}; uncertainty ${ul(t.U).toLowerCase()} (jarak ke sampel, kepadatan sampling, DQ, konflik layer). Kategori matriks: <b>${mx}</b>${t.U>=.5?' — Priority for New Data Collection':''}. Memerlukan verifikasi lapangan.</p>
+<b>Sensitivitas bobot:</b> ±10% ${t.r10[0].toFixed(2)}–${t.r10[1].toFixed(2)} · ±20% ${t.r20[0].toFixed(2)}–${t.r20[1].toFixed(2)} → <b>${t.stab}</b>
+<p style="font-size:12px;color:var(--mu)">Jejak: ${t.id} → ${t.cells.length} sel (mis. ${t.cells[0].id}) → layer evidence → sampel ${t.nr.map(x=>esc(x[1].id)).join(', ')} → sumber: ${srcs.map(esc).join('; ')||'tidak dicatat'}${t.nr.some(x=>x[1].ctx)?' (termasuk CONTEXTUAL DATA)':''}</p>
+<a class="b" style="display:inline-block;padding:12px;text-decoration:none;border-radius:8px" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${t.lat},${t.lon}">Open in Google Maps</a><button class="b" onclick="navigator.clipboard&&navigator.clipboard.writeText('${t.lat.toFixed(6)},${t.lon.toFixed(6)}')">Copy Coordinates</button></details>`}).join(''))}
+const SF=[['sid','Sample ID (auto jika kosong)'],['sla','Latitude'],['slo','Longitude'],['sel','Elevasi (m)'],['sco','Collector'],['sro','Rock type'],['ssd','Sediment type'],['sqz','Quartz vein'],['sal','Alteration'],['smn','Visible minerals'],['sst','Stream condition'],['sty','Sample type'],['snt','Notes'],...EL.map(e=>['l_'+e,'Lab '+e])];
+$('#sf').innerHTML=SF.map(([i,l])=>`<div><label>${l}</label><input id="${i}" style="width:100%"></div>`).join('');
+function gps(){if(!navigator.geolocation){alert('GPS tidak tersedia');return}navigator.geolocation.getCurrentPosition(p=>{$('#sla').value=p.coords.latitude.toFixed(6);$('#slo').value=p.coords.longitude.toFixed(6);$('#sel').value=p.coords.altitude!=null?Math.round(p.coords.altitude):''},e=>alert('GPS gagal: '+e.message),{enableHighAccuracy:true,timeout:15000})}
+function ss(){const v=i=>$('#'+i).value.trim(),lat=parseFloat(v('sla')),lon=parseFloat(v('slo'));if(isNaN(lat)||isNaN(lon)){alert('Koordinat wajib diisi (gunakan GPS).');return}
+const o={id:v('sid')||'SAMPLE-'+String(SV.length+1).padStart(3,'0'),lat,lon,elev:v('sel'),time:new Date().toISOString(),collector:v('sco'),rock:v('sro'),sediment:v('ssd'),quartz:v('sqz'),alteration:v('sal'),minerals:v('smn'),stream:v('sst'),sample_type:v('sty'),notes:v('snt')};EL.forEach(e=>o[e]=v('l_'+e));SV.push(o);svk('sv',SV);
+if(o.Au!==''){const r={id:o.id,lat,lon,type:o.sample_type||'field',source:'Field survey',year:new Date().getFullYear(),_r:'F'};EL.forEach(e=>r[e.toLowerCase()]=o[e]);RAW.push(r);svk('raw',RAW);run()}else rAll()}
+function rS(){h('#sl','<b>Titik survey ('+SV.length+')</b>'+SV.map(s=>`<br>${esc(s.id)} · ${s.lat}, ${s.lon} · ${esc(s.sample_type)} ${s.Au!==''?'· Au '+esc(s.Au):''}`).join(''))}
+function tp(){$('#csv').value='id,lat,lon,type,Au,Ag,As,Sb,Cu,Pb,Zn,Hg,source,year,contextual,known\n'}
+function ld2(){RAW=parse($('#csv').value);svk('raw',RAW);run(true)}
+$('#fi').onchange=e=>{const f=e.target.files[0];if(!f||f.size>5e6){alert('File maks 5 MB');return}const r=new FileReader();r.onload=()=>{$('#csv').value=r.result};r.readAsText(f)};
+$('#fs').onchange=e=>{const f=e.target.files[0];if(!f||f.size>5e6)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);ST=[];(j.features||[j]).forEach(ft=>{const g=ft.geometry||ft;if(g.type=='LineString')ST.push(g.coordinates);else if(g.type=='MultiLineString')g.coordinates.forEach(l=>ST.push(l))});$('#sm').textContent=ST.length+' segmen struktur dimuat (sumber/CRS: pastikan WGS84 lon,lat).';run()}catch(x){alert('GeoJSON tidak valid')}};r.readAsText(f)};
+function clr(){if(!confirm('Hapus semua data lokal (sampel, survey, versi)?'))return;RAW=[];SV=[];VER=[];['raw','sv','ver'].forEach(k=>svk(k,[]));M=null;S=[];ISS=[];rAll()}
+function exp(){const k=$('#xk').value,f=$('#xf').value,R=k=='s'?S.map(s=>({id:s.id,lat:s.lat,lon:s.lon,type:s.type,...Object.fromEntries(EL.map(e=>[e,s.raw[e]])),source:s.src,year:s.yr})):k=='t'?(M?M.T.map(t=>({id:t.id,lat:t.lat,lon:t.lon,area_km2:t.area.toFixed(2),prospectivity:t.Pm.toFixed(2),uncertainty:t.U.toFixed(2),data_quality:t.dq.toFixed(2)})):[]):SV;let o;
+if(f=='csv'){const K=R[0]?Object.keys(R[0]):[];o=[K.join(','),...R.map(r=>K.map(x=>'"'+String(r[x]??'').replace(/"/g,'""')+'"').join(','))].join('\n')}
+else if(f=='gj')o=JSON.stringify({type:'FeatureCollection',features:R.map(r=>({type:'Feature',geometry:{type:'Point',coordinates:[+r.lon,+r.lat]},properties:r}))},null,1);
+else o='<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document>'+R.map(r=>`<Placemark><name>${esc(r.id)}</name><Point><coordinates>${r.lon},${r.lat}</coordinates></Point></Placemark>`).join('')+'</Document></kml>';$('#xo').value=o||'DATA TIDAK TERSEDIA'}
+function tab(n){document.querySelectorAll('.tab').forEach(e=>e.hidden=e.id!='t_'+n);document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t==n));if(n=='map')draw();if(n=='an')hist()}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
+document.querySelectorAll('.pr').forEach(e=>e.onchange=()=>run());document.querySelectorAll('.pr').forEach(e=>e.oninput=readP);
+h('#ly',[['p','Prospectivity'],['u','Uncertainty overlay'],['s','Sampel Au'],['l','Struktur'],['t','Target'],['v','Survey']].map(([k,n])=>`<label style="margin:0"><input type="checkbox" checked onchange="LY.${k}=this.checked;draw()"> ${n}</label>`).join(''));
+addEventListener('resize',draw);readP();tab('map');run();fit();
+</script></body></html>

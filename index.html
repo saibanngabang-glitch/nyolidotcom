@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<title>Peta Indikasi Emas — Ngabang, Landak</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+ integrity="sha256-p4NxAoJBhIINfQ3wX5Z2Z1Xw1xW1jQ5wQf3m6v1pK7k="
+ crossorigin=""/>
+<style>
+:root{
+  --bg:#0b1220; --panel:#111827; --panel2:#172033; --text:#e5e7eb;
+  --muted:#9ca3af; --line:#263244; --accent:#f59e0b; --blue:#38bdf8;
+  --green:#22c55e; --red:#ef4444; --shadow:0 10px 30px rgba(0,0,0,.25);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#e5e7eb}
+body{overflow:hidden}
+#map{position:fixed;inset:0;z-index:1}
+.appbar{
+  position:fixed;z-index:1000;top:0;left:0;right:0;padding:10px;
+  padding-top:calc(10px + env(safe-area-inset-top));
+  pointer-events:none;
+}
+.header{
+  max-width:760px;margin:auto;background:rgba(15,23,42,.94);color:white;
+  border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:12px 14px;
+  box-shadow:var(--shadow);pointer-events:auto;backdrop-filter:blur(10px)
+}
+.header .eyebrow{font-size:10px;letter-spacing:.16em;color:#fbbf24;font-weight:800}
+.header h1{font-size:17px;margin:3px 0 0;line-height:1.15}
+.header p{margin:3px 0 0;color:#cbd5e1;font-size:11px}
+.toolbar{
+  display:flex;gap:7px;margin-top:9px;overflow:auto;padding-bottom:1px
+}
+button,.file-label{
+  border:1px solid #334155;background:#172033;color:#e5e7eb;border-radius:10px;
+  padding:9px 11px;font:600 12px system-ui;cursor:pointer;white-space:nowrap;
+}
+button:hover,.file-label:hover{background:#243047}
+button.primary{background:#b45309;border-color:#d97706;color:white}
+button.danger{background:#7f1d1d;border-color:#991b1b}
+button.green{background:#166534;border-color:#15803d}
+button.blue{background:#075985;border-color:#0369a1}
+.panel{
+  position:fixed;z-index:900;left:10px;bottom:10px;width:min(390px,calc(100vw - 20px));
+  max-height:min(70vh,680px);overflow:auto;background:rgba(15,23,42,.96);
+  color:var(--text);border:1px solid rgba(255,255,255,.1);border-radius:16px;
+  box-shadow:var(--shadow);backdrop-filter:blur(10px);padding:10px;
+}
+.panel.hidden{display:none}
+.tabs{display:flex;gap:5px;overflow:auto;margin-bottom:8px}
+.tab{flex:1;min-width:90px}
+.section{border-top:1px solid var(--line);padding:10px 2px}
+.section:first-child{border-top:0}
+.section h3{font-size:13px;margin:0 0 8px}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:6px 0}
+label.check{display:flex;align-items:center;gap:8px;font-size:12px}
+input[type="checkbox"]{accent-color:#f59e0b;width:17px;height:17px}
+.small{font-size:11px;color:var(--muted);line-height:1.45}
+.legend-item{display:flex;gap:7px;align-items:center;font-size:11px;margin:6px 0}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block;border:2px solid white;box-shadow:0 0 0 1px #64748b}
+.dot.yellow{background:#facc15}.dot.green{background:#22c55e}.dot.red{background:#ef4444}.dot.blue{background:#38bdf8}
+.badge{display:inline-block;padding:3px 6px;border-radius:999px;font-size:10px;font-weight:800}
+.badge.support{background:#14532d;color:#bbf7d0}.badge.ind{background:#713f12;color:#fef08a}
+.badge.verify{background:#7f1d1d;color:#fecaca}
+.card{background:#111827;border:1px solid var(--line);border-radius:12px;padding:9px;margin:7px 0}
+.card strong{font-size:12px}.card .meta{font-size:10px;color:#94a3b8;margin-top:4px}
+.card .actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.card button{padding:6px 8px;font-size:10px}
+input,select,textarea{
+  width:100%;border:1px solid #334155;background:#0b1220;color:#e5e7eb;border-radius:9px;
+  padding:9px;font:12px system-ui;margin-top:4px
+}
+textarea{min-height:70px;resize:vertical}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.form-grid .full{grid-column:1/-1}
+.modal{
+  position:fixed;inset:0;z-index:2000;background:rgba(2,6,23,.72);display:flex;
+  align-items:flex-end;justify-content:center;padding:10px
+}
+.modal.hidden{display:none}
+.modalbox{
+  width:min(520px,100%);max-height:90vh;overflow:auto;background:#111827;color:#e5e7eb;
+  border:1px solid #334155;border-radius:18px;padding:14px;box-shadow:var(--shadow)
+}
+.modalbox h2{font-size:16px;margin:0 0 10px}
+.close{float:right}
+.notice{
+  background:#3f2a0a;border:1px solid #92400e;color:#fde68a;border-radius:10px;padding:8px;
+  font-size:10px;line-height:1.45
+}
+.source a{color:#7dd3fc;text-decoration:none}
+.source a:hover{text-decoration:underline}
+.leaflet-control-attribution{font-size:9px}
+.leaflet-control-zoom{margin-top:90px!important}
+.flow-label{background:rgba(30,64,175,.9);color:#fff;border:0;border-radius:7px;padding:3px 6px;font-weight:800}
+.gps-pulse{width:18px;height:18px;border-radius:50%;background:#22c55e;border:3px solid white;box-shadow:0 0 0 7px rgba(34,197,94,.2)}
+@media (max-width:600px){
+  .header h1{font-size:15px}.header p{font-size:10px}
+  .panel{bottom:8px;left:8px;width:calc(100vw - 16px);max-height:62vh}
+  .leaflet-control-zoom{display:none}
+}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="appbar">
+  <div class="header">
+    <div class="eyebrow">PETA INDIKASI EMAS</div>
+    <h1>NGABANG — KABUPATEN LANDAK</h1>
+    <p>Kalimantan Barat · data indikasi, geologi, sungai & survei pengguna</p>
+    <div class="toolbar">
+      <button id="panelBtn">☰ Layer & Data</button>
+      <button id="ngabangBtn">📍 Ngabang</button>
+      <button id="locBtn">◎ Lokasi Saya</button>
+      <button id="fullBtn">⛶ Fullscreen</button>
+      <button class="primary" id="surveyBtn">＋ Survei</button>
+    </div>
+  </div>
+</div>
+
+<div id="panel" class="panel hidden">
+  <div class="tabs">
+    <button class="tab" data-tab="layers">Layer</button>
+    <button class="tab" data-tab="survey">Survei Saya</button>
+    <button class="tab" data-tab="flow">Hulu → Hilir</button>
+    <button class="tab" data-tab="sources">Sumber Data</button>
+  </div>
+
+  <div id="tab-layers" class="tabcontent">
+    <div class="section">
+      <h3>🗺️ Layer Peta</h3>
+      <label class="check"><input id="goldLayer" type="checkbox" checked> 🟡 Indikasi / area emas bersumber</label>
+      <label class="check"><input id="riverLayer" type="checkbox" checked> 🔵 Sungai / hidrologi</label>
+      <label class="check"><input id="geoLayer" type="checkbox"> 🟠 Geologi regional (BIG)</label>
+      <label class="check"><input id="topoLayer" type="checkbox"> 🟢 Topografi / OpenTopoMap</label>
+      <label class="check"><input id="surveyLayer" type="checkbox" checked> 🔴 Titik survei saya</label>
+    </div>
+    <div class="section">
+      <h3>Klasifikasi data</h3>
+      <div class="legend-item"><span class="dot green"></span><b>Data pendukung</b> — konteks geologi/geokimia</div>
+      <div class="legend-item"><span class="dot yellow"></span><b>Indikasi</b> — ada bukti/data mineralisasi</div>
+      <div class="legend-item"><span class="dot red"></span><b>Perlu verifikasi lapangan</b> — lokasi/keadaan perlu dicek</div>
+    </div>
+    <div class="section">
+      <div class="notice">Tidak ada titik emas presisi yang dibuat dari perkiraan. Jika sumber hanya memberi cakupan wilayah, peta menampilkannya sebagai area/extent dan bukan titik sampling.</div>
+    </div>
+  </div>
+
+  <div id="tab-survey" class="tabcontent hidden">
+    <div class="section">
+      <h3>🔴 Titik Survei Saya</h3>
+      <button class="green" id="addSurveyBtn">＋ Ambil GPS & Tambah Titik</button>
+      <button id="exportCsvBtn">Export CSV</button>
+      <button id="exportGeoBtn">Export GeoJSON</button>
+      <div id="surveyList"></div>
+    </div>
+  </div>
+
+  <div id="tab-flow" class="tabcontent hidden">
+    <div class="section">
+      <h3>MODE ALIRAN SUNGAI</h3>
+      <p class="small">Navigasi ini hanya menggunakan lokasi/jejaring sungai yang dapat diverifikasi dari data peta. Garis aliran bukan interpretasi endapan emas.</p>
+      <div class="toolbar">
+        <button id="upBtn">⬅ Hulu</button>
+        <button id="ngBtn">📍 Ngabang</button>
+        <button id="downBtn">➡ Hilir</button>
+      </div>
+      <div class="card">
+        <strong>Urutan konseptual</strong>
+        <div class="meta">Hulu → anak sungai → Sungai Landak → Ngabang → hilir → sistem Kapuas</div>
+      </div>
+      <div class="small">OSM/WaterwayMap mencatat Sungai Landak dan tributarinya. Arah aliran ditampilkan hanya jika data sungai mendukungnya.</div>
+    </div>
+  </div>
+
+  <div id="tab-sources" class="tabcontent hidden">
+    <div class="section">
+      <h3>📚 Sumber Data</h3>
+      <div class="card source"><strong>Badan Geologi / GeoMap</strong><div class="meta">Layanan peta geologi publik, termasuk raster dan vektor. Dipakai sebagai rujukan geologi.</div><a href="https://geologi.esdm.go.id/geomap" target="_blank" rel="noopener">Buka GeoMap</a></div>
+      <div class="card source"><strong>Badan Geologi — Prosiding 2014</strong><div class="meta">Penelitian mineral di Kecamatan Mandor dan Menjalin, Landak. Dokumen menyebut emas aluvial di DAS Sungai Mandor dan memberikan cakupan koordinat penelitian. Data tersebut ditampilkan sebagai area extent, bukan titik emas di Ngabang.</div><a href="https://geologi.esdm.go.id/storage/publikasi/Gv4bXeM4MlqWui4xVXv6QrDtWWYAgKX7aHY1MXDe.pdf" target="_blank" rel="noopener">Buka publikasi</a></div>
+      <div class="card source"><strong>Badan Geologi — penelitian bekas tambang</strong><div class="meta">Mendokumentasikan wilayah bekas tambang emas rakyat di Mandor/Menjalin dan hasil analisis mineral. Tidak dipindahkan menjadi titik di Ngabang.</div><a href="https://geologi.esdm.go.id/perpustakaan/?id=9656&keywords=&p=show_detail" target="_blank" rel="noopener">Buka katalog penelitian</a></div>
+      <div class="card source"><strong>Jurnal Geologi & Sumberdaya Mineral</strong><div class="meta">Publikasi tentang keterdapatan mineral sekunder di sepanjang Sungai Landak; digunakan sebagai konteks sistem sungai, bukan sebagai bukti titik emas.</div><a href="https://jgsm.geologi.esdm.go.id/index.php/JGSM/article/view/308" target="_blank" rel="noopener">Buka artikel</a></div>
+      <div class="card source"><strong>Badan Informasi Geospasial</strong><div class="meta">Layanan geologi regional Atlas 250K yang digunakan sebagai layer geologi opsional.</div><a href="https://geoservices.big.go.id/gis/rest/services/PTRA/Atlas_250K_Geologi/MapServer" target="_blank" rel="noopener">Buka layanan geoservice</a></div>
+      <div class="card source"><strong>Pemerintah Kabupaten Landak</strong><div class="meta">Profil/PrADA Kabupaten Landak untuk konteks wilayah dan administrasi.</div><a href="https://bappeda.landakkab.go.id/storage/documents/b16ed347-9de2-4edb-af3d-d6f5b27ff975.pdf" target="_blank" rel="noopener">Buka PrADA 2024</a></div>
+      <div class="card source"><strong>OpenStreetMap</strong><div class="meta">Basemap dan data sungai yang ditampilkan melalui peta. © OpenStreetMap contributors, ODbL.</div><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">Lisensi OSM</a></div>
+      <div class="notice">Data indikasi pada aplikasi ini bukan jaminan keberadaan emas, kadar, cadangan, atau kelayakan ekonomi. Verifikasi geologi, sampel, analisis laboratorium, aspek lingkungan, dan perizinan tetap diperlukan.</div>
+    </div>
+  </div>
+</div>
+
+<div id="modal" class="modal hidden">
+  <div class="modalbox">
+    <button class="close" id="closeModal">✕</button>
+    <h2>＋ Tambah Titik Survei</h2>
+    <div class="small" id="gpsStatus">Menunggu GPS…</div>
+    <div class="form-grid">
+      <div>
+        <label>Nama titik</label>
+        <input id="sName" placeholder="S-001">
+      </div>
+      <div>
+        <label>Jenis sampel</label>
+        <select id="sType">
+          <option>Sedimen sungai</option>
+          <option>Pasir konsentrat</option>
+          <option>Batuan</option>
+          <option>Tanah</option>
+          <option>Lainnya</option>
+        </select>
+      </div>
+      <div>
+        <label>Latitude</label>
+        <input id="sLat" readonly>
+      </div>
+      <div>
+        <label>Longitude</label>
+        <input id="sLon" readonly>
+      </div>
+      <div class="full">
+        <label>Catatan</label>
+        <textarea id="sNote" placeholder="Catatan lapangan…"></textarea>
+      </div>
+      <div class="full">
+        <label>Foto</label>
+        <input id="sPhoto" type="file" accept="image/*" capture="environment">
+        <div class="small">Foto diperkecil dan disimpan lokal di perangkat.</div>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button class="green" id="saveSurveyBtn">Simpan Lokal</button>
+      <button id="cancelSurveyBtn">Batal</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+ integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+ crossorigin=""></script>
+<script src="https://unpkg.com/esri-leaflet@3.0.16/dist/esri-leaflet.js"></script>
+<script>
+const NGABANG = [0.3852,109.9540];
+const map = L.map('map',{zoomControl:true,tap:true,preferCanvas:true}).setView(NGABANG,11);
+
+const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  maxZoom:19, attribution:'© OpenStreetMap contributors'
+}).addTo(map);
+
+const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{
+  maxZoom:17, opacity:.72, attribution:'© OpenTopoMap (CC-BY-SA)'
+});
+
+const geoRegional = L.esri.dynamicMapLayer({
+  url:'https://geoservices.big.go.id/gis/rest/services/PTRA/Atlas_250K_Geologi/MapServer',
+  opacity:.48, useCors:true
+});
+
+const goldLayer = L.layerGroup().addTo(map);
+const riverLayer = L.layerGroup().addTo(map);
+const surveyLayer = L.layerGroup().addTo(map);
+
+function escapeHtml(s){
+  return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+function coord(v){return Number(v).toFixed(6)}
+function googleUrl(lat,lon){return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(lat+','+lon)}
+function copyCoord(lat,lon){
+  const t=coord(lat)+', '+coord(lon);
+  if(navigator.clipboard) navigator.clipboard.writeText(t);
+  else {const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();}
+  alert('Koordinat disalin: '+t);
+}
+function popup(title,fields,lat,lon){
+  let h='<div style="min-width:230px"><b>'+escapeHtml(title)+'</b>';
+  fields.forEach(f=>h+='<div style="margin-top:4px;font-size:12px"><b>'+escapeHtml(f[0])+':</b> '+escapeHtml(f[1])+'</div>');
+  h+='<div style="display:flex;gap:5px;margin-top:8px"><button onclick="copyCoord('+lat+','+lon+')">📍 Salin koordinat</button><a href="'+googleUrl(lat,lon)+'" target="_blank" style="padding:6px 8px;border:1px solid #94a3b8;border-radius:7px;text-decoration:none;font-size:11px">🧭 Google Maps</a></div></div>';
+  return h;
+}
+
+/* NO FICTIONAL GOLD POINTS:
+   This extent comes from the published official study coordinates:
+   109°18'48.6"–109°25'36.5" BT and 0°26'10.5"–0°13'33.5" LU,
+   covering the study area in Mandor/Menjalin. It is NOT an exact gold
+   occurrence polygon and is explicitly labelled as research extent. */
+const researchBounds = [[0.2259722,109.3135],[0.43625,109.4268056]];
+const researchRect = L.rectangle(researchBounds,{
+  color:'#f59e0b',weight:2,dashArray:'7 6',fillColor:'#f59e0b',fillOpacity:.12
+}).bindPopup(
+  '<b>Area/extent penelitian emas — Mandor/Menjalin</b>'+
+  '<div style="font-size:12px;margin-top:5px">Cakupan koordinat penelitian resmi, bukan titik sampling dan bukan batas prospek emas presisi.</div>'+
+  '<div style="font-size:12px;margin-top:5px">Sumber: Badan Geologi, Prosiding Hasil Kegiatan Pusat Sumber Daya Geologi 2014.</div>'
+);
+researchRect.addTo(goldLayer);
+
+const researchCenter = L.marker([0.33111,109.37015],{
+  icon:L.divIcon({className:'',html:'<div style="background:#facc15;border:3px solid #fff;width:18px;height:18px;border-radius:50%;box-shadow:0 0 0 2px #92400e"></div>',iconSize:[18,18],iconAnchor:[9,9]})
+}).bindPopup(
+  '<b>Area penelitian emas Landak</b>'+
+  '<div style="font-size:12px;margin-top:5px">Marker ini adalah <b>pusat visual extent penelitian</b>, bukan lokasi emas.</div>'+
+  '<div style="font-size:12px;margin-top:5px">Kecamatan Mandor/Menjalin; bukan Ngabang.</div>'+
+  '<div style="margin-top:7px"><a href="https://geologi.esdm.go.id/storage/publikasi/Gv4bXeM4MlqWui4xVXv6QrDtWWYAgKX7aHY1MXDe.pdf" target="_blank">Sumber resmi</a></div>'
+);
+researchCenter.addTo(goldLayer);
+
+/* River context: only verified named locations/confluences from OSM-derived
+   WaterwayMap are marked. The main river itself is visible on OSM basemap.
+   A schematic flow line is deliberately NOT drawn to avoid inventing geometry. */
+const riverInfo = [
+  {name:'Sungai Landak',lat:0.45833,lon:109.94167,note:'Sungai utama; jaringan OSM/WaterwayMap.'},
+  {name:'Pertemuan Sungai Menyuke — Sungai Landak',lat:0.46167,lon:109.94111,note:'Koordinat pertemuan yang tercatat pada data OSM-derived WaterwayMap.'},
+  {name:'Sistem hilir Sungai Landak',lat:-0.02006,lon:109.34291,note:'Lokasi Sungai Landak yang tercatat pada sumber peta publik; digunakan sebagai konteks hilir, bukan titik emas.'}
+];
+riverInfo.forEach((r,i)=>{
+  const m=L.circleMarker([r.lat,r.lon],{radius:7,color:'#0369a1',weight:2,fillColor:'#38bdf8',fillOpacity:.9});
+  m.bindPopup(popup(r.name,[['Koordinat',coord(r.lat)+', '+coord(r.lon)],['Keterangan',r.note],['Status','Data sungai, bukan data emas']],r.lat,r.lon));
+  m.addTo(riverLayer);
+});
+const riverLegend=L.control({position:'bottomright'});
+riverLegend.onAdd=function(){
+  const d=L.DomUtil.create('div','card');d.style.margin='0';d.style.background='rgba(15,23,42,.9)';d.style.color='white';
+  d.innerHTML='<b style="font-size:11px">🔵 Sungai</b><div style="font-size:9px;margin-top:3px">Garis sungai utama dibaca dari basemap OSM. Marker biru = lokasi sungai/pertemuan yang terdokumentasi.</div>';
+  return d;
+};
+riverLegend.addTo(map);
+
+let surveyData=[];
+try{surveyData=JSON.parse(localStorage.getItem('ngabangSurveyV1')||'[]')}catch(e){surveyData=[]}
+
+function persist(){localStorage.setItem('ngabangSurveyV1',JSON.stringify(surveyData));renderSurveys();}
+function surveyPopup(s){
+  return popup('🔴 '+s.name,[
+    ['Latitude',coord(s.lat)],['Longitude',coord(s.lon)],['Jenis sampel',s.type],
+    ['Catatan',s.note||'—'],['Waktu',s.time]
+  ],s.lat,s.lon)+(s.photo?'<div style="margin-top:8px"><img src="'+s.photo+'" style="max-width:210px;max-height:150px;border-radius:8px"></div>':'');
+}
+function renderSurveys(){
+  surveyLayer.clearLayers();
+  const list=document.getElementById('surveyList'); list.innerHTML='';
+  surveyData.forEach((s,i)=>{
+    const m=L.marker([s.lat,s.lon],{icon:L.divIcon({className:'',html:'<div style="background:#ef4444;border:3px solid white;width:18px;height:18px;border-radius:50%;box-shadow:0 0 0 2px #7f1d1d"></div>',iconSize:[18,18],iconAnchor:[9,9]})});
+    m.bindPopup(surveyPopup(s));m.addTo(surveyLayer);
+    const c=document.createElement('div');c.className='card';
+    c.innerHTML='<strong>'+escapeHtml(s.name)+'</strong><div class="meta">Lat: '+coord(s.lat)+' · Lon: '+coord(s.lon)+'<br>Jenis: '+escapeHtml(s.type)+'<br>'+escapeHtml(s.note||'')+'</div><div class="actions"><button data-i="'+i+'" class="edit">Edit</button><button data-i="'+i+'" class="del danger">Hapus</button><button data-i="'+i+'" class="copy">Salin koordinat</button><button data-i="'+i+'" class="maps">Google Maps</button></div>';
+    list.appendChild(c);
+  });
+  list.querySelectorAll('.del').forEach(b=>b.onclick=()=>{surveyData.splice(+b.dataset.i,1);persist()});
+  list.querySelectorAll('.copy').forEach(b=>{b.onclick=()=>{let s=surveyData[+b.dataset.i];copyCoord(s.lat,s.lon)}});
+  list.querySelectorAll('.maps').forEach(b=>{b.onclick=()=>{let s=surveyData[+b.dataset.i];window.open(googleUrl(s.lat,s.lon),'_blank')}});
+  list.querySelectorAll('.edit').forEach(b=>b.onclick=()=>editSurvey(+b.dataset.i));
+}
+renderSurveys();
+
+let editingIndex=null, pendingPhoto='';
+function openSurveyModal(existingIndex=null){
+  editingIndex=existingIndex;
+  document.getElementById('modal').classList.remove('hidden');
+  if(existingIndex!==null){
+    const s=surveyData[existingIndex];
+    sName.value=s.name;sType.value=s.type;sLat.value=s.lat;sLon.value=s.lon;sNote.value=s.note||'';
+    pendingPhoto=s.photo||'';gpsStatus.textContent='Mode edit titik tersimpan.';
+  }else{
+    sName.value='S-'+String(surveyData.length+1).padStart(3,'0');
+    sLat.value='';sLon.value='';sNote.value='';sPhoto.value='';pendingPhoto='';
+    getGPS();
+  }
+}
+function closeModal(){modal.classList.add('hidden');editingIndex=null}
+function getGPS(){
+  gpsStatus.textContent='Meminta lokasi perangkat…';
+  if(!navigator.geolocation){gpsStatus.textContent='Browser tidak mendukung GPS.';return}
+  navigator.geolocation.getCurrentPosition(pos=>{
+    sLat.value=pos.coords.latitude.toFixed(6);sLon.value=pos.coords.longitude.toFixed(6);
+    gpsStatus.textContent='GPS diperoleh. Akurasi ±'+Math.round(pos.coords.accuracy)+' m.';
+  },err=>{gpsStatus.textContent='GPS gagal: '+err.message+'. Anda dapat mengisi lokasi dengan memilih titik di peta.'},{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+}
+sPhoto.addEventListener('change',()=>{
+  const f=sPhoto.files?.[0]; if(!f)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const img=new Image();img.onload=()=>{
+      const max=1000,scale=Math.min(1,max/Math.max(img.width,img.height));
+      const c=document.createElement('canvas');c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);pendingPhoto=c.toDataURL('image/jpeg',.72);
+    };img.src=reader.result;
+  };reader.readAsDataURL(f);
+});
+saveSurveyBtn.onclick=()=>{
+  const lat=Number(sLat.value),lon=Number(sLon.value);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)){alert('Koordinat GPS belum tersedia.');return}
+  const obj={name:sName.value.trim()||'S-'+Date.now(),lat,lon,type:sType.value,note:sNote.value.trim(),photo:pendingPhoto,time:new Date().toLocaleString('id-ID')};
+  if(editingIndex===null) surveyData.push(obj); else surveyData[editingIndex]=obj;
+  persist();closeModal();openTab('survey');
+};
+function editSurvey(i){openSurveyModal(i)}
+
+document.getElementById('surveyBtn').onclick=()=>openSurveyModal();
+document.getElementById('addSurveyBtn').onclick=()=>openSurveyModal();
+document.getElementById('closeModal').onclick=closeModal;
+document.getElementById('cancelSurveyBtn').onclick=closeModal;
+
+function openTab(name){
+  document.querySelectorAll('.tabcontent').forEach(x=>x.classList.add('hidden'));
+  document.getElementById('tab-'+name).classList.remove('hidden');
+  document.getElementById('panel').classList.remove('hidden');
+}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>openTab(b.dataset.tab));
+document.getElementById('panelBtn').onclick=()=>panel.classList.toggle('hidden');
+
+goldLayer.on('remove',()=>{}); // layer group control is handled by checkboxes
+goldLayer.addTo(map);riverLayer.addTo(map);surveyLayer.addTo(map);
+goldLayer.addTo(map); // harmless if already added
+
+goldLayer.eachLayer(l=>{});
+document.getElementById('goldLayer').onchange=e=>e.target.checked?map.addLayer(goldLayer):map.removeLayer(goldLayer);
+document.getElementById('riverLayer').onchange=e=>e.target.checked?map.addLayer(riverLayer):map.removeLayer(riverLayer);
+document.getElementById('surveyLayer').onchange=e=>e.target.checked?map.addLayer(surveyLayer):map.removeLayer(surveyLayer);
+document.getElementById('geoLayer').onchange=e=>e.target.checked?map.addLayer(geoRegional):map.removeLayer(geoRegional);
+document.getElementById('topoLayer').onchange=e=>e.target.checked?map.addLayer(topo):map.removeLayer(topo);
+
+document.getElementById('ngabangBtn').onclick=()=>map.flyTo(NGABANG,12,{duration:1});
+document.getElementById('ngBtn').onclick=()=>map.flyTo(NGABANG,12,{duration:1});
+document.getElementById('upBtn').onclick=()=>map.flyTo([0.65,109.98],10,{duration:1});
+document.getElementById('downBtn').onclick=()=>map.flyTo([-0.02,109.34],10,{duration:1});
+document.getElementById('fullBtn').onclick=()=>{
+  const el=document.documentElement;
+  if(!document.fullscreenElement)el.requestFullscreen?.();else document.exitFullscreen?.();
+};
+document.getElementById('locBtn').onclick=()=>{
+  if(!navigator.geolocation){alert('GPS tidak tersedia.');return}
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const p=[pos.coords.latitude,pos.coords.longitude];
+    map.flyTo(p,16,{duration:1});
+    L.circleMarker(p,{radius:8,color:'#fff',weight:3,fillColor:'#22c55e',fillOpacity:1}).addTo(map).bindPopup('Lokasi perangkat saat ini').openPopup();
+  },err=>alert('Lokasi gagal: '+err.message),{enableHighAccuracy:true,timeout:15000});
+};
+
+/* Search control: place/coordinate without API key. */
+const searchBox=L.control({position:'topright'});
+searchBox.onAdd=function(){
+  const d=L.DomUtil.create('div','leaflet-bar');
+  d.style.background='#111827';d.style.padding='5px';d.style.borderRadius='10px';
+  d.innerHTML='<input id="searchInput" placeholder="Cari lokasi / lat, lon" style="width:170px;margin:0;background:#0b1220;color:#fff;border:0">';
+  L.DomEvent.disableClickPropagation(d);
+  return d;
+};
+searchBox.addTo(map);
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&document.activeElement?.id==='searchInput'){
+    const q=document.getElementById('searchInput').value.trim();
+    if(!q)return;
+    const pair=q.match(/^\s*(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)\s*$/);
+    if(pair){
+      const lat=Number(pair[1]),lon=Number(pair[2]);
+      if(Math.abs(lat)<=90&&Math.abs(lon)<=180){map.flyTo([lat,lon],15);L.marker([lat,lon]).addTo(map).bindPopup('Hasil pencarian<br>'+coord(lat)+', '+coord(lon)).openPopup();return}
+    }
+    fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=id&q='+encodeURIComponent(q))
+      .then(r=>r.json()).then(a=>{
+        if(!a.length){alert('Lokasi tidak ditemukan.');return}
+        const lat=+a[0].lat,lon=+a[0].lon;map.flyTo([lat,lon],15);
+        L.marker([lat,lon]).addTo(map).bindPopup('<b>'+escapeHtml(a[0].display_name)+'</b><br>'+coord(lat)+', '+coord(lon)).openPopup();
+      }).catch(()=>alert('Pencarian memerlukan internet.'));
+  }
+});
+
+/* Export */
+function download(name,type,data){
+  const blob=new Blob([data],{type}),a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+document.getElementById('exportCsvBtn').onclick=()=>{
+  const rows=[['ID','Nama','Latitude','Longitude','Jenis Sampel','Catatan','Waktu']];
+  surveyData.forEach((s,i)=>rows.push(['S-'+String(i+1).padStart(3,'0'),s.name,s.lat,s.lon,s.type,s.note,s.time]));
+  const csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\\n');
+  download('titik-survei-ngabang.csv','text/csv;charset=utf-8',csv);
+};
+document.getElementById('exportGeoBtn').onclick=()=>{
+  const geo={type:'FeatureCollection',features:surveyData.map((s,i)=>({
+    type:'Feature',geometry:{type:'Point',coordinates:[s.lon,s.lat]},
+    properties:{id:'S-'+String(i+1).padStart(3,'0'),nama:s.name,jenis_sampel:s.type,catatan:s.note,waktu:s.time}
+  }))};
+  download('titik-survei-ngabang.geojson','application/geo+json;charset=utf-8',JSON.stringify(geo,null,2));
+};
+
+/* Click map to inspect coordinates / optionally add survey. */
+map.on('click',e=>{
+  const lat=e.latlng.lat,lon=e.latlng.lng;
+  L.popup().setLatLng(e.latlng).setContent(
+    '<b>Koordinat peta</b><br>'+coord(lat)+', '+coord(lon)+
+    '<div style="margin-top:7px"><button onclick="copyCoord('+lat+','+lon+')">📍 Salin koordinat</button> '+
+    '<a href="'+googleUrl(lat,lon)+'" target="_blank">🧭 Google Maps</a></div>'
+  ).openOn(map);
+});
+
+/* Keep initial view clean: user can enable geologic/topo overlays from Layer tab. */
+openTab('layers');
+</script>
+</body>
+</html>
